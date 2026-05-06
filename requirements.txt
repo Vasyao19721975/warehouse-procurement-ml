@@ -4,3 +4,5 @@ scikit-learn
 fastapi
 uvicorn
 joblib
+boto3
+python-dotenv

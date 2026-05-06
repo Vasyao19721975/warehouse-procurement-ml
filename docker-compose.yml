@@ -1,13 +1,19 @@
-version: '3'
-
 services:
   airflow:
     image: apache/airflow:2.9.0
     container_name: airflow
     restart: always
+    depends_on:
+      - minio
+    env_file:
+      - .env
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=${S3_BUCKET}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./:/app
@@ -17,7 +23,26 @@ services:
     command: >
       bash -c "
       airflow db init &&
-      airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@mail.com &&
+      airflow users create --username ${AIRFLOW_USERNAME} --password ${AIRFLOW_PASSWORD} --firstname ${AIRFLOW_FIRSTNAME} --lastname ${AIRFLOW_LASTNAME} --role Admin --email ${AIRFLOW_EMAIL} || true &&
       airflow webserver &
       airflow scheduler
       "
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  minio_data:

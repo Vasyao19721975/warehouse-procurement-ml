@@ -16,6 +16,7 @@ from src.config import (
     RAW_SUPPLIES_DIR,
     PROCESSED_DATA_DIR,
     OUTPUTS_DIR,
+    MODEL_PATH,
     ALL_STOCKS_RAW_FILE,
     ALL_SUPPLIES_FILE,
     ALL_STOCKS_MAIN_FILE,
@@ -23,6 +24,7 @@ from src.config import (
     FINAL_OUTPUT_FILE,
     TARGET_DAYS,
 )
+from src.s3_client import create_bucket_if_not_exists, upload_file
 
 
 def main():
@@ -75,6 +77,16 @@ def main():
     stocks_main.to_csv(ALL_STOCKS_MAIN_FILE, index=False, encoding="utf-8-sig")
     final_df.to_csv(FINAL_DATASET_FILE, index=False, encoding="utf-8-sig")
     all_products.to_csv(FINAL_OUTPUT_FILE, index=False, encoding="utf-8-sig")
+
+    print("Загрузка артефактов в MinIO...")
+
+    try:
+        create_bucket_if_not_exists()
+        upload_file(MODEL_PATH, "models/model.pkl")
+        upload_file(FINAL_OUTPUT_FILE, "outputs/final_recommendations.csv")
+        print("Артефакты успешно загружены в MinIO.")
+    except Exception as error:
+        print(f"Не удалось загрузить артефакты в MinIO: {error}")
 
     print("Готово.")
     print(f"Файлы сохранены в: {PROCESSED_DATA_DIR}")

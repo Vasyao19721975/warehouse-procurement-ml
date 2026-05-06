@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -43,9 +48,16 @@ FINAL_OUTPUT_FILE = os.path.join(
     "final_recommendations.csv"
 )
 
+
 TARGET_DAYS = 7
 
 MODEL_RANDOM_STATE = 42
 MODEL_N_ESTIMATORS = 50
 
 TEST_SIZE = 0.2
+
+
+S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
+S3_BUCKET = os.getenv("S3_BUCKET", "warehouse-ml")
