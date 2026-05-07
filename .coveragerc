@@ -1,0 +1,5 @@
+[run]
+omit =
+    src/api.py
+    src/tasks.py
+    src/s3_client.py

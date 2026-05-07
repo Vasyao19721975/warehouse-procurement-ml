@@ -7,3 +7,4 @@ outputs/
 .pytest_cache/
 .coverage
 models/
+.coverage

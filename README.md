@@ -148,18 +148,18 @@ pip install -r requirements.txt
 Содержимое:
 
 ```env
-MINIO_ROOT_USER=vasyao
-MINIO_ROOT_PASSWORD=prpup123
+MINIO_ROOT_USER=ваш логин
+MINIO_ROOT_PASSWORD=ваш пароль
 
 S3_ENDPOINT=http://minio:9000
-S3_ACCESS_KEY=vasyao
-S3_SECRET_KEY=prpup123
+S3_ACCESS_KEY=ваш логин
+S3_SECRET_KEY=ваш пароль
 S3_BUCKET=warehouse-ml
 
-AIRFLOW_USERNAME=vasyao
-AIRFLOW_PASSWORD=prpup123
-AIRFLOW_FIRSTNAME=Mikhail
-AIRFLOW_LASTNAME=Belkin
+AIRFLOW_USERNAME=ваш логин
+AIRFLOW_PASSWORD=ваш пароль
+AIRFLOW_FIRSTNAME=FIRSTNAME
+AIRFLOW_LASTNAME=LASTNAME
 AIRFLOW_EMAIL=your_email@mail.com
 ```
 
@@ -198,13 +198,13 @@ http://localhost:8080
 Логин:
 
 ```text
-vasyao
+ваш логин
 ```
 
 Пароль:
 
 ```text
-prpup123
+ваш пароль
 ```
 
 ---
@@ -218,13 +218,13 @@ http://localhost:9001
 Логин:
 
 ```text
-vasyao
+ваш логин
 ```
 
 Пароль:
 
 ```text
-prpup123
+ваш пароль
 ```
 
 ---
