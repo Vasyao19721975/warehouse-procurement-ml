@@ -6,6 +6,8 @@ from src.config import (
     S3_ACCESS_KEY,
     S3_SECRET_KEY,
     S3_BUCKET,
+    RUN_DATE,
+    RUN_ID,
 )
 
 
@@ -42,3 +44,24 @@ def upload_file(local_path: str, object_name: str):
     )
 
     print(f"Uploaded: {object_name}")
+
+
+def upload_artifacts(model_path: str, output_path: str):
+    safe_run_id = (
+        RUN_ID.replace(":", "_")
+        .replace("+", "_")
+        .replace("/", "_")
+        .replace(" ", "_")
+    )
+
+    model_object_name = f"models/{RUN_DATE}/{safe_run_id}/model.pkl"
+    output_object_name = f"outputs/{RUN_DATE}/{safe_run_id}/final_recommendations.csv"
+
+    create_bucket_if_not_exists()
+
+    upload_file(model_path, model_object_name)
+    upload_file(output_path, output_object_name)
+
+    print("Artifacts uploaded to MinIO:")
+    print(f"Model: {model_object_name}")
+    print(f"Output: {output_object_name}")

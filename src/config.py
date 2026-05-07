@@ -58,6 +58,9 @@ TEST_SIZE = 0.2
 
 
 S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://localhost:9000")
-S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
-S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "admin")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "admin12345")
 S3_BUCKET = os.getenv("S3_BUCKET", "warehouse-ml")
+
+RUN_DATE = os.getenv("RUN_DATE", "manual_run")
+RUN_ID = os.getenv("RUN_ID", "local_run")

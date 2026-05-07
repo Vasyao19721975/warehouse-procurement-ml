@@ -1,3 +1,9 @@
+import shutil
+from pathlib import Path
+from fastapi import UploadFile, File
+from src.main import main as run_pipeline_main
+from src.config import RAW_STOCKS_DIR
+from src.main import main as run_pipeline_main
 import os
 import joblib
 import pandas as pd
@@ -64,3 +70,58 @@ def predict(request: PredictionRequest):
         "predicted_sales": predicted_sales,
         "ml_recommended_order": ml_recommended_order,
     }
+
+@app.post("/run-pipeline")
+def run_pipeline():
+    try:
+        run_pipeline_main()
+
+        return {
+            "status": "ok",
+            "message": "ML pipeline successfully finished. Artifacts uploaded to MinIO.",
+            "artifacts": [
+                "models/model.pkl",
+                "outputs/final_recommendations.csv",
+            ],
+        }
+
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error),
+        }
+        
+@app.post("/upload-stock-and-run")
+def upload_stock_and_run(file: UploadFile = File(...)):
+    try:
+        input_dir = Path("input")
+        input_dir.mkdir(exist_ok=True)
+
+        raw_stocks_dir = Path(RAW_STOCKS_DIR)
+        raw_stocks_dir.mkdir(parents=True, exist_ok=True)
+
+        input_file_path = input_dir / file.filename
+        raw_file_path = raw_stocks_dir / file.filename
+
+        with open(input_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        shutil.copy(input_file_path, raw_file_path)
+
+        run_pipeline_main()
+
+        return {
+            "status": "ok",
+            "message": "Файл остатков загружен, pipeline выполнен, результат отправлен в MinIO.",
+            "uploaded_file": file.filename,
+            "artifacts": [
+                "models/model.pkl",
+                "outputs/final_recommendations.csv",
+            ],
+        }
+
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error),
+        }
