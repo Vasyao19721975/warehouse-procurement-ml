@@ -2,17 +2,33 @@
 
 ## 1. General Approach
 
-Система реализована как batch-пайплайн для регулярного пересчёта рекомендаций по закупке товаров.
+Система реализована как ML-based batch и inference pipeline для автоматизации закупок товаров на складе.
 
-Основной сценарий работы:
-1. загрузка данных об остатках и поставках;
-2. предобработка данных;
+Архитектура объединяет:
+
+- batch training pipeline;
+- dynamic inference pipeline;
+- REST API;
+- orchestration через Airflow;
+- хранение артефактов в MinIO (S3-compatible storage).
+
+Основные сценарии работы:
+
+### Batch pipeline
+1. загрузка данных;
+2. предобработка;
 3. расчёт продаж;
-4. построение baseline-рекомендаций;
-5. обучение ML-модели;
-6. прогнозирование спроса;
-7. формирование итоговых рекомендаций;
-8. сохранение результатов.
+4. обучение модели;
+5. inference;
+6. сохранение артефактов;
+7. сохранение history.
+
+### API inference pipeline
+1. загрузка нового stock файла через FastAPI;
+2. запуск inference;
+3. генерация рекомендаций;
+4. upload результатов в MinIO;
+5. сохранение inference history.
 
 ---
 
@@ -56,6 +72,19 @@
 Результат сохраняется в итоговый файл:
 - `outputs/final_recommendations.csv`
 
+### Stage 9. API Inference
+
+FastAPI позволяет запускать inference через HTTP API.
+
+Основные возможности:
+- upload нового stock файла;
+- запуск inference pipeline;
+- получение рекомендаций;
+- получение JSON результатов;
+- удалённый доступ через Swagger UI.
+
+API используется как inference service layer.
+
 ---
 
 ## 3. Main Components
@@ -69,6 +98,11 @@
 - `ml_pipeline.py` — обучение и прогнозирование;
 - `main.py` — оркестрация полного пайплайна;
 - `config.py` — централизованное хранение настроек и путей.
+- `inference.py` — dynamic inference pipeline;
+- `api.py` — FastAPI service layer;
+- `tasks.py` — Airflow task execution layer;
+- `warehouse_batch_dag.py` — Airflow DAG orchestration;
+- `s3_client.py` — работа с MinIO/S3 storage;
 
 ---
 
@@ -96,8 +130,9 @@ python -m src.main
 Используется следующая структура хранения:
 
 ```text
-outputs/<execution_date>/<run_id>/
 models/<execution_date>/<run_id>/
+recommendations/history/<execution_date>/<run_id>/
+datasets/inference_history/<execution_date>/<run_id>/
 ```
 
 Это позволяет:
@@ -131,17 +166,34 @@ python -m src.main
 ```
 ---
 
-## 7. Idempotency
+
+## 7. Remote Access
+
+Для удалённого доступа используется Tailscale.
+
+Это позволяет:
+- открывать Swagger UI удалённо;
+- использовать Airflow с другого устройства;
+- подключаться к MinIO через интернет;
+- демонстрировать систему без переноса проекта.
+
+Поддерживается доступ к:
+- FastAPI;
+- Airflow;
+- MinIO.
+
+## 8. Idempotency
 
 Pipeline поддерживает идемпотентность на уровне S3/MinIO storage.
 
 Особенности реализации:
 
-- каждый DAG run сохраняется отдельно;
-- результаты не перезаписывают предыдущие артефакты;
-- поддерживается backfill за прошлые даты;
-- структура хранения разделена по execution date и run_id;
-- повторный запуск DAG создаёт новую директорию.
+- latest artifacts обновляются при каждом запуске;
+- historical artifacts сохраняются отдельно;
+- каждый DAG run имеет собственный run_id;
+- поддерживается backfill;
+- поддерживается idempotent rerun;
+- inference history сохраняется отдельно по execution date и run_id.
 
 Пример структуры:
 
@@ -165,7 +217,7 @@ models/
 
 ---
 
-## 8. Scalability
+## 9. Scalability
 
 Система масштабируется за счёт:
 
@@ -177,19 +229,18 @@ models/
 
 ---
 
-## 9. Risks and Limitations
+## 10. Risks and Limitations
 
 Ограничения:
 
-- локальный запуск;
-- нет scheduler в базовой версии;
-- нет model registry;
-- ограниченные признаки;
-- нет online-инференса.
-
+- локальное развёртывание;
+- ограниченный объём исторических данных;
+- отсутствует model registry;
+- отсутствует distributed execution;
+- отсутствует monitoring production metrics.
 ---
 
-## 10. Future Improvements
+## 11. Future Improvements
 
 - переход к near real-time;
 - API сервис;
@@ -201,7 +252,15 @@ models/
 - CI/CD pipeline;
 - Kubernetes deployment.
 
-## 11. Orchestration
+- asynchronous inference;
+- message broker integration;
+- streaming ingestion;
+- GPU inference;
+- distributed training;
+- automatic model versioning;
+- RBAC/security layer;
+
+## 12. Orchestration
 
 Для orchestration pipeline используется Apache Airflow.
 
@@ -212,3 +271,20 @@ models/
 - воспроизводимость окружения;
 - независимый запуск задач;
 - удобный monitoring DAG execution.
+
+## 13. API Architecture
+
+FastAPI используется как REST inference layer.
+
+Основные endpoints:
+
+- `/upload-stock-and-inference`
+- `/recommendations/latest`
+- `/recommendations/latest-json`
+
+API поддерживает:
+- file upload;
+- inference execution;
+- recommendation retrieval;
+- Swagger documentation;
+- remote access через Tailscale.

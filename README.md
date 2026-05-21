@@ -23,12 +23,13 @@ ML-сервис для автоматизации закупок на склад
 
 Проект состоит из:
 
-- FastAPI — API сервиса
+- FastAPI — inference API и Swagger UI
 - Airflow — orchestration batch pipeline
 - Docker — контейнеризация
 - MinIO — S3-хранилище артефактов
 - RandomForestRegressor — ML модель
 - Pandas / Scikit-learn — обработка и ML
+- S3 artifact versioning через execution_date и run_id
 
 ---
 
@@ -40,9 +41,19 @@ DAG `warehouse_batch_pipeline` выполняет:
 2. `load_data`
 3. `preprocess_data`
 4. `run_ml_pipeline`
-5. `upload_to_minio`
-6. `backfill_task`
+5. `run_inference`
+6. `upload_to_minio`
+7. `backfill_task`
 
+Каждый stage pipeline запускается как отдельный Docker container через Airflow DockerOperator.
+
+Pipeline поддерживает:
+- batch processing
+- scheduled execution
+- dynamic inference
+- artifact versioning
+- idempotent reruns
+- historical backfill
 ---
 
 # 🧠 ML модель
@@ -65,6 +76,31 @@ DAG `warehouse_batch_pipeline` выполняет:
 - `MAE (Mean Absolute Error)`
 
 ---
+
+
+# 🔮 Dynamic Inference
+
+Система поддерживает динамический inference pipeline.
+
+Пользователь может:
+
+- загрузить новый файл остатков через FastAPI
+- автоматически выполнить inference
+- получить рекомендации по закупкам
+- сохранить историю inference
+- сохранить результаты в MinIO
+- сохранить historical inference artifacts
+
+Inference pipeline включает:
+
+- загрузку модели
+- feature engineering
+- прогнозирование спроса
+- расчёт recommended_order
+- расчёт critical_order
+- upload результатов в S3/MinIO
+
+История inference сохраняется отдельно для каждой даты и DAG run.
 
 # 📁 Структура проекта
 
@@ -175,6 +211,8 @@ docker build -t warehouse-ml-app:latest .
 
 # 🚀 Запуск сервисов
 
+Перед запуском убедитесь, что Docker Desktop запущен.
+
 ```bash
 docker compose up -d
 ```
@@ -229,6 +267,27 @@ http://localhost:9001
 
 ---
 
+---
+
+# 🌍 Remote Access
+
+Проект поддерживает удалённый доступ через Tailscale.
+
+Это позволяет:
+
+- открывать Swagger UI с другого устройства
+- использовать Airflow удалённо
+- просматривать MinIO через интернет
+- демонстрировать систему без переноса проекта
+
+Примеры:
+
+```text
+http://100.x.x.x:8000/docs
+http://100.x.x.x:8080
+http://100.x.x.x:9001
+```
+
 # ▶ Запуск DAG
 
 1. Открыть Airflow
@@ -242,21 +301,31 @@ http://localhost:9001
 После выполнения DAG:
 
 - обучается ML модель
+- выполняется inference
 - формируются рекомендации
+- сохраняется inference history
 - артефакты загружаются в MinIO
 
 Структура в S3:
 
 ```text
-outputs/
-  2024-01-01/
-    scheduled__2024-01-01T00_00_00+00_00/
-      final_recommendations.csv
-
 models/
   2024-01-01/
-    scheduled__2024-01-01T00_00_00+00_00/
+    scheduled__run_id/
       model.pkl
+
+recommendations/
+  latest_recommendations.csv
+
+recommendations/history/
+  2024-01-01/
+    scheduled__run_id/
+      inference_recommendations.csv
+
+datasets/inference_history/
+  2024-01-01/
+    scheduled__run_id/
+      inference_history.csv
 ```
 
 ---
@@ -288,12 +357,33 @@ pytest --cov=src tests/
 
 ---
 
+# 🔄 Inference Flow
+
+1. Пользователь загружает новый stock файл
+2. FastAPI сохраняет файл
+3. Загружается обученная модель
+4. Выполняется feature engineering
+5. Выполняется ML inference
+6. Формируются рекомендации
+7. Результаты сохраняются локально
+8. Артефакты загружаются в MinIO
+9. История inference сохраняется отдельно
+
+
 # 📡 API
+
+FastAPI используется для:
+
+- загрузки новых stock файлов
+- запуска inference
+- получения последних рекомендаций
+- получения JSON результатов
+- интеграции с внешними системами
 
 Запуск API:
 
 ```bash
-uvicorn src.api:app --reload
+uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Swagger UI:
@@ -301,6 +391,14 @@ Swagger UI:
 ```text
 http://localhost:8000/docs
 ```
+
+Основные endpoints:
+
+| Endpoint | Description |
+|---|---|
+| `/upload-stock-and-inference` | upload stock file and run inference |
+| `/recommendations/latest` | get latest recommendations CSV |
+| `/recommendations/latest-json` | get latest recommendations JSON |
 
 ---
 

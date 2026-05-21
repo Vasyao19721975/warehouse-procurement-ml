@@ -20,22 +20,37 @@
 
 ### 1.2 Objective
 
-Цель — разработать ML-систему, которая автоматизирует процесс принятия решений по закупкам.
+Цель — разработать ML-систему для автоматизации закупок товаров на складе.
 
 Система должна:
-- прогнозировать спрос на товары
-- учитывать текущие остатки
-- формировать рекомендации по закупкам
+- прогнозировать спрос;
+- учитывать остатки и поставки;
+- формировать рекомендации по закупкам;
+- поддерживать batch pipeline;
+- поддерживать dynamic inference;
+- обеспечивать orchestration через Airflow;
+- сохранять артефакты и историю inference в MinIO.
+
 
 ---
 
 ### 1.3 Success Metrics
 
-Метрики эффективности:
+ML metrics:
+- MAE
+- RMSE
+- MAPE
 
-- MAE (ошибка прогноза)
-- снижение out-of-stock
-- снижение избыточных запасов
+Business metrics:
+- снижение out-of-stock;
+- снижение overstock;
+- уменьшение ручных операций.
+
+System metrics:
+- успешное выполнение DAG;
+- воспроизводимость inference;
+- сохранение history;
+- идемпотентность pipeline.
 
 ---
 
@@ -49,9 +64,11 @@
 
 ### 1.5 Constraints
 
-- ограниченное количество данных
-- отсутствие внешних факторов
-- возможный шум в данных
+- ограниченный объём исторических данных;
+- локальное развёртывание;
+- отсутствие distributed training;
+- отсутствие model registry;
+- отсутствие automated monitoring.
 
 
 ## 2. Методология Data Scientist
@@ -72,10 +89,12 @@
 - Этап 5: Интеграция бизнес-правил
 - Этап 6: Генерация рекомендаций
 - Этап 7: Инференс и обновление модели
-- Этап 8: Подготовка финального отчёта
+- Этап 8: API Inference
+- Этап 9: Airflow Orchestration
+- Этап 10: Artifact Storage
+- Этап 11: Подготовка финального отчёта
 
-![alt text](image.png)
-
+![alt text](0446b4c4-e8ae-4c75-b6ad-0d309cd06ffb.png)
 ---
 
 ## 2.3 Этапы решения задачи
@@ -217,22 +236,100 @@
 
 ---
 
-### Этап 7: Инференс и обновление модели
+### Этап 7: Инференс и orchestration
 
 #### MVP:
 
-- частота:
-  - ежедневно  
+Система поддерживает:
 
-- реализация:
-  - batch pipeline через Airflow  
+- batch inference через Airflow;
+- dynamic inference через FastAPI;
+- DAG orchestration;
+- Docker-based execution;
+- artifact upload в MinIO;
+- inference history;
+- backfill.
 
-#### Baseline:
-- ручной пересчёт  
+Inference может запускаться:
+- по расписанию;
+- вручную;
+- через API upload.
 
 ---
 
-### Этап 8: Финальный результат
+### Этап 8: API Layer
+
+#### MVP:
+
+FastAPI используется как inference service layer.
+
+Поддерживаются:
+- upload stock files;
+- inference execution;
+- recommendation retrieval;
+- JSON responses;
+- Swagger UI.
+
+Основные endpoints:
+- `/upload-stock-and-inference`
+- `/recommendations/latest`
+- `/recommendations/latest-json`
+
+---
+
+### Этап 9: Artifact Storage
+
+#### MVP:
+
+Артефакты сохраняются в MinIO (S3-compatible storage).
+
+Сохраняются:
+- модели;
+- inference recommendations;
+- inference history;
+- historical DAG runs.
+
+Используется versioned storage:
+- execution_date
+- run_id
+
+Это обеспечивает:
+- reproducibility;
+- backfill;
+- idempotency;
+- historical tracking.
+
+---
+
+### Этап 10: Airflow Orchestration
+
+#### MVP:
+
+Apache Airflow используется как orchestration layer.
+
+Pipeline разделён на Docker-based tasks:
+
+- check_idempotency
+- load_data
+- preprocess_data
+- run_ml_pipeline
+- run_inference
+- upload_to_minio
+- backfill_task
+
+Airflow обеспечивает:
+- scheduling;
+- retry;
+- monitoring;
+- logs;
+- historical DAG runs;
+- backfill support.
+
+---
+
+
+
+### Этап 11: Финальный результат
 
 #### MVP:
 
@@ -246,3 +343,16 @@
 
 #### Baseline:
 - базовый анализ продаж  
+
+
+## 3. Future Improvements
+
+- asynchronous inference;
+- streaming ingestion;
+- automatic retraining;
+- CI/CD pipeline;
+- Kubernetes deployment;
+- distributed execution;
+- feature store;
+- monitoring dashboard;
+- model versioning.

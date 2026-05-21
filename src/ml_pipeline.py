@@ -21,6 +21,13 @@ def prepare_ml_data(df: pd.DataFrame) -> pd.DataFrame:
 
     ml_df["lag_1"] = ml_df.groupby("sku_id")["sales"].shift(1)
     ml_df["lag_2"] = ml_df.groupby("sku_id")["sales"].shift(2)
+    
+    ml_df["rolling_mean_3"] = (
+        ml_df.groupby("sku_id")["sales"]
+        .shift(1)
+        .rolling(window=3, min_periods=1)
+        .mean()
+    )   
 
     ml_df = ml_df.dropna().copy()
 
@@ -28,7 +35,7 @@ def prepare_ml_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def train_sales_model(ml_df: pd.DataFrame) -> tuple[RandomForestRegressor, float]:
-    X = ml_df[["lag_1", "lag_2"]]
+    X = ml_df[["stock", "lag_1", "lag_2", "rolling_mean_3"]]
     y = ml_df["sales"]
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -58,7 +65,9 @@ def train_sales_model(ml_df: pd.DataFrame) -> tuple[RandomForestRegressor, float
 
 def predict_sales(ml_df: pd.DataFrame, model: RandomForestRegressor) -> pd.DataFrame:
     result = ml_df.copy()
-    result["predicted_sales"] = model.predict(result[["lag_1", "lag_2"]])
+    result["predicted_sales"] = model.predict(
+        result[["stock", "lag_1", "lag_2", "rolling_mean_3"]]
+    )
 
     return result
 
@@ -81,9 +90,13 @@ def add_ml_recommendations(
         how="left",
     )
 
+    result["safety_stock"] = result["predicted_sales"] * 2
+
     result["ml_recommended_order"] = (
         result["predicted_sales"] * target_days
-    ) - result["stock"]
+        + result["safety_stock"]
+        - result["stock"]
+    )
 
     result["ml_recommended_order"] = result["ml_recommended_order"].apply(
         lambda x: max(0, x) if pd.notna(x) else 0

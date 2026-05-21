@@ -1,30 +1,28 @@
+import os
 import shutil
 from pathlib import Path
-from fastapi import UploadFile, File
-from src.main import main as run_pipeline_main
-from src.config import RAW_STOCKS_DIR
-from src.main import main as run_pipeline_main
-import os
-import joblib
+
 import pandas as pd
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import FileResponse
 
-from fastapi import FastAPI
-from pydantic import BaseModel
+from src.main import main as run_training_pipeline
+from src.inference import run_inference
+from src.config import (
+    MODEL_PATH,
+    OUTPUTS_DIR,
+)
+from src.inference import (
+    INFERENCE_STOCKS_DIR,
+    INFERENCE_OUTPUT_FILE,
+)
 
-from src.config import MODEL_PATH
 
 app = FastAPI(
     title="Warehouse Procurement ML API",
     description="API for warehouse demand prediction and procurement recommendations",
     version="1.0.0",
 )
-
-
-class PredictionRequest(BaseModel):
-    lag_1: float
-    lag_2: float
-    stock: float
-    target_days: int = 7
 
 
 @app.get("/")
@@ -36,92 +34,95 @@ def root():
 
 @app.get("/health")
 def health():
+    latest_exists = os.path.exists(INFERENCE_OUTPUT_FILE)
+
     return {
         "status": "ok",
         "model_exists": os.path.exists(MODEL_PATH),
         "model_path": MODEL_PATH,
+        "latest_recommendations_exists": latest_exists,
+        "latest_recommendations_path": INFERENCE_OUTPUT_FILE,
     }
 
 
-@app.post("/predict")
-def predict(request: PredictionRequest):
-    if not os.path.exists(MODEL_PATH):
+@app.post("/run-training")
+def run_training():
+    try:
+        run_training_pipeline()
+
         return {
-            "status": "error",
-            "message": "Model file not found. Run training pipeline first."
+            "status": "ok",
+            "message": "Training pipeline finished successfully.",
+            "artifacts": [
+                "models/model.pkl",
+                "outputs/final_recommendations.csv",
+            ],
         }
 
-    model = joblib.load(MODEL_PATH)
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error),
+        }
 
-    features = pd.DataFrame([{
-        "lag_1": request.lag_1,
-        "lag_2": request.lag_2,
-    }])
 
-    predicted_sales = float(model.predict(features)[0])
+@app.post("/upload-stock-and-inference")
+def upload_stock_and_inference(file: UploadFile = File(...)):
+    try:
+        inference_dir = Path(INFERENCE_STOCKS_DIR)
+        inference_dir.mkdir(parents=True, exist_ok=True)
 
-    ml_recommended_order = max(
-        0,
-        predicted_sales * request.target_days - request.stock
+        for old_file in inference_dir.glob("*.xlsx"):
+            old_file.unlink()
+
+        uploaded_file_path = inference_dir / file.filename
+
+        with open(uploaded_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        run_inference()
+
+        return {
+            "status": "ok",
+            "message": "Файл остатков загружен, inference выполнен, рекомендации сформированы и отправлены в MinIO.",
+            "uploaded_file": file.filename,
+            "latest_recommendations": INFERENCE_OUTPUT_FILE,
+        }
+
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error),
+        }
+
+
+@app.get("/recommendations/latest")
+def get_latest_recommendations():
+    if not os.path.exists(INFERENCE_OUTPUT_FILE):
+        return {
+            "status": "error",
+            "message": "Latest recommendations file not found. Run inference first.",
+        }
+
+    return FileResponse(
+        path=INFERENCE_OUTPUT_FILE,
+        filename="latest_recommendations.csv",
+        media_type="text/csv",
     )
+
+
+@app.get("/recommendations/latest-json")
+def get_latest_recommendations_json(limit: int = 20):
+    if not os.path.exists(INFERENCE_OUTPUT_FILE):
+        return {
+            "status": "error",
+            "message": "Latest recommendations file not found. Run inference first.",
+        }
+
+    df = pd.read_csv(INFERENCE_OUTPUT_FILE)
 
     return {
         "status": "ok",
-        "predicted_sales": predicted_sales,
-        "ml_recommended_order": ml_recommended_order,
+        "count": len(df),
+        "items": df.head(limit).to_dict(orient="records"),
     }
-
-@app.post("/run-pipeline")
-def run_pipeline():
-    try:
-        run_pipeline_main()
-
-        return {
-            "status": "ok",
-            "message": "ML pipeline successfully finished. Artifacts uploaded to MinIO.",
-            "artifacts": [
-                "models/model.pkl",
-                "outputs/final_recommendations.csv",
-            ],
-        }
-
-    except Exception as error:
-        return {
-            "status": "error",
-            "message": str(error),
-        }
-        
-@app.post("/upload-stock-and-run")
-def upload_stock_and_run(file: UploadFile = File(...)):
-    try:
-        input_dir = Path("input")
-        input_dir.mkdir(exist_ok=True)
-
-        raw_stocks_dir = Path(RAW_STOCKS_DIR)
-        raw_stocks_dir.mkdir(parents=True, exist_ok=True)
-
-        input_file_path = input_dir / file.filename
-        raw_file_path = raw_stocks_dir / file.filename
-
-        with open(input_file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        shutil.copy(input_file_path, raw_file_path)
-
-        run_pipeline_main()
-
-        return {
-            "status": "ok",
-            "message": "Файл остатков загружен, pipeline выполнен, результат отправлен в MinIO.",
-            "uploaded_file": file.filename,
-            "artifacts": [
-                "models/model.pkl",
-                "outputs/final_recommendations.csv",
-            ],
-        }
-
-    except Exception as error:
-        return {
-            "status": "error",
-            "message": str(error),
-        }

@@ -65,3 +65,38 @@ def upload_artifacts(model_path: str, output_path: str):
     print("Artifacts uploaded to MinIO:")
     print(f"Model: {model_object_name}")
     print(f"Output: {output_object_name}")
+    
+def upload_inference_artifacts(
+    recommendations_path: str,
+    history_path: str,
+    recommendation_date: str,
+):
+    safe_run_id = (
+        RUN_ID.replace(":", "_")
+        .replace("+", "_")
+        .replace("/", "_")
+        .replace(" ", "_")
+    )
+
+    latest_object_name = "recommendations/latest_recommendations.csv"
+
+    history_recommendation_object_name = (
+        f"recommendations/history/{recommendation_date}/{safe_run_id}/"
+        f"inference_recommendations.csv"
+    )
+
+    history_state_object_name = (
+        f"datasets/inference_history/{recommendation_date}/{safe_run_id}/"
+        f"inference_history.csv"
+    )
+
+    create_bucket_if_not_exists()
+
+    upload_file(recommendations_path, latest_object_name)
+    upload_file(recommendations_path, history_recommendation_object_name)
+    upload_file(history_path, history_state_object_name)
+
+    print("Inference artifacts uploaded to MinIO:")
+    print(f"Latest recommendations: {latest_object_name}")
+    print(f"Historical recommendations: {history_recommendation_object_name}")
+    print(f"Inference history: {history_state_object_name}")

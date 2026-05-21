@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.s3_client import upload_artifacts
 from src.main import main as run_full_pipeline
+from src.inference import run_inference
 from src.config import (
     MODEL_PATH,
     FINAL_OUTPUT_FILE,
@@ -77,6 +78,24 @@ def run_ml_pipeline():
     print("Task: run_ml_pipeline")
     run_full_pipeline()
     print("ML pipeline finished.")
+    
+
+def run_inference_task():
+    """
+    Batch inference task.
+
+    Выполняет:
+    - загрузку модели
+    - inference
+    - формирование рекомендаций
+    - сохранение history
+    - upload в MinIO
+    """
+    print("Task: run_inference")
+
+    run_inference()
+
+    print("Inference finished.")
 
 
 def upload_to_minio():
@@ -107,6 +126,7 @@ TASKS = {
     "load_data": load_data,
     "preprocess_data": preprocess_data,
     "run_ml_pipeline": run_ml_pipeline,
+    "run_inference": run_inference_task,
     "upload_to_minio": upload_to_minio,
     "backfill": backfill,
 }

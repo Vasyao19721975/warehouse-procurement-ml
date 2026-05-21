@@ -35,7 +35,7 @@ with DAG(
     "auto_remove": True,
     "working_dir": "/app",
     "environment": {
-    "S3_ENDPOINT": os.getenv("S3_ENDPOINT"),
+    "S3_ENDPOINT": "http://minio:9000",
     "S3_ACCESS_KEY": os.getenv("S3_ACCESS_KEY"),
     "S3_SECRET_KEY": os.getenv("S3_SECRET_KEY"),
     "S3_BUCKET": os.getenv("S3_BUCKET"),
@@ -74,6 +74,12 @@ with DAG(
         command="python -m src.tasks run_ml_pipeline",
         **common_kwargs,
     )
+    
+    run_inference = DockerOperator(
+    task_id="run_inference",
+    command="python -m src.tasks run_inference",
+    **common_kwargs,
+    )
 
     upload_to_minio = DockerOperator(
         task_id="upload_to_minio",
@@ -88,10 +94,11 @@ with DAG(
     )
 
     (
-        check_idempotency
-        >> load_data
-        >> preprocess_data
-        >> run_ml_pipeline
-        >> upload_to_minio
-        >> backfill_task
+    check_idempotency
+    >> load_data
+    >> preprocess_data
+    >> run_ml_pipeline
+    >> run_inference
+    >> upload_to_minio
+    >> backfill_task
     )
