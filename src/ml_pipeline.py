@@ -1,9 +1,10 @@
 import os
 import joblib
 import pandas as pd
+import numpy as np
 
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import train_test_split
 
 from src.config import (
@@ -53,7 +54,21 @@ def train_sales_model(ml_df: pd.DataFrame) -> tuple[RandomForestRegressor, float
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)
+
     mae = mean_absolute_error(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+
+    baseline_pred = [y_train.mean()] * len(y_test)
+
+    baseline_mae = mean_absolute_error(y_test, baseline_pred)
+    baseline_rmse = np.sqrt(mean_squared_error(y_test, baseline_pred))
+
+    print(f"Baseline MAE: {baseline_mae:.4f}")
+    print(f"Baseline RMSE: {baseline_rmse:.4f}")
+
+    print(f"MAE: {mae:.4f}")
+    print(f"RMSE: {rmse:.4f}")
+    
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
